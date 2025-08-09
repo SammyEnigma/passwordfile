@@ -43,7 +43,6 @@ OpenSslRandomDevice::result_type OpenSslRandomDevice::operator()() const
             errorMsg += '\n';
         }
         errorMsg += ERR_error_string(errorCode, nullptr);
-        errorCode = ERR_get_error();
     }
     throw Io::CryptoException(std::move(errorMsg));
 }
