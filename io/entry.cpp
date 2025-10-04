@@ -5,9 +5,6 @@
 #include <c++utilities/io/binaryreader.h>
 #include <c++utilities/io/binarywriter.h>
 
-#include <algorithm>
-#include <sstream>
-
 using namespace std;
 using namespace CppUtilities;
 
