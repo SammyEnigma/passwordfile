@@ -28,10 +28,10 @@ PASSWORD_FILE_EXPORT std::string flagsToString(PasswordFileOpenFlags flags);
 
 enum class PasswordFileSaveFlags : std::uint64_t {
     None = 0,
-    Encryption = 1,
-    Compression = 2,
-    PasswordHashing = 4,
-    AllowToCreateNewFile = 8,
+    Encryption = (1 << 0),
+    Compression = (1 << 1),
+    PasswordHashing = (1 << 2),
+    AllowToCreateNewFile = (1 << 3),
     Default = Encryption | Compression | PasswordHashing | AllowToCreateNewFile,
 };
 
