@@ -118,8 +118,8 @@ void EntryTests::testNesting()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("index not altered", 0, account->index());
     CPPUNIT_ASSERT_EQUAL_MESSAGE("index updated", 0, node->index());
     CPPUNIT_ASSERT_EQUAL_MESSAGE("index updated", 1, anotherNode->index());
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("root's childrens updated", vector<Entry *>{ account CPP_UTILITIES_PP_COMMA anotherNode }, root.children());
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("another node's childrens updated", vector<Entry *>{ node }, anotherNode->children());
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("root's children updated", vector<Entry *>{ account CPP_UTILITIES_PP_COMMA anotherNode }, root.children());
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("another node's children updated", vector<Entry *>{ node }, anotherNode->children());
     CPPUNIT_ASSERT_MESSAGE("node is still an indirect child of root", node->isIndirectChildOf(&root));
     CPPUNIT_ASSERT_MESSAGE("node is direct and hence also an indirect child of another node", node->isIndirectChildOf(anotherNode));
     CPPUNIT_ASSERT_MESSAGE("another node is no indirect child of node", !anotherNode->isIndirectChildOf(node));
@@ -128,7 +128,7 @@ void EntryTests::testNesting()
     auto *const replacementNode = new NodeEntry("replacement", &root);
     CPPUNIT_ASSERT_EQUAL_MESSAGE("replacement's index initialized", 2, replacementNode->index());
     root.replaceChild(1, replacementNode);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("root's childrens updated", vector<Entry *>{ account CPP_UTILITIES_PP_COMMA replacementNode }, root.children());
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("root's children updated", vector<Entry *>{ account CPP_UTILITIES_PP_COMMA replacementNode }, root.children());
     CPPUNIT_ASSERT_MESSAGE("another node parentless", !anotherNode->parent());
     CPPUNIT_ASSERT_EQUAL_MESSAGE("another node's index updated", -1, anotherNode->index());
     CPPUNIT_ASSERT_EQUAL_MESSAGE("replacement's index updated", 1, replacementNode->index());
@@ -139,7 +139,7 @@ void EntryTests::testNesting()
     CPPUNIT_ASSERT_EQUAL_MESSAGE("index updated", 1, account->index());
     CPPUNIT_ASSERT_EQUAL_MESSAGE("index updated", 2, replacementNode->index());
     root.deleteChildren(0, 1);
-    CPPUNIT_ASSERT_EQUAL_MESSAGE("root's childrens updated", vector<Entry *>{ account CPP_UTILITIES_PP_COMMA replacementNode }, root.children());
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("root's children updated", vector<Entry *>{ account CPP_UTILITIES_PP_COMMA replacementNode }, root.children());
     CPPUNIT_ASSERT_EQUAL_MESSAGE("index updated", 0, account->index());
     CPPUNIT_ASSERT_EQUAL_MESSAGE("index updated", 1, replacementNode->index());
 }

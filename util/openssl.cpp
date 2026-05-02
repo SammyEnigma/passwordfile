@@ -153,7 +153,7 @@ std::uint32_t generateRandomNumber(std::uint32_t min, std::uint32_t max)
  * \return Returns the token with as many number of digits as specified in the URL.
  * \throws
  * - Throws a CppUtilities::ConversionException if URL parameters are invalid/missing.
- * - Throws a Io::CryptoException if an error occurrs during cryptographic computation.
+ * - Throws a Io::CryptoException if an error occurs during cryptographic computation.
  */
 std::string computeTOTP(std::string_view url, CppUtilities::DateTime time)
 {
@@ -171,12 +171,12 @@ std::string computeTOTP(std::string_view url, CppUtilities::DateTime time)
     // create context
     EVP_MAC *const mac = EVP_MAC_fetch(nullptr, "HMAC", nullptr);
     if (!mac) {
-        throw Io::CryptoException("EVP_MAC_fetch faild for algorithm=HMAC");
+        throw Io::CryptoException("EVP_MAC_fetch failed for algorithm=HMAC");
     }
     EVP_MAC_CTX *const ctx = EVP_MAC_CTX_new(mac);
     if (!ctx) {
         EVP_MAC_free(mac);
-        throw Io::CryptoException("EVP_MAC_CTX_new faild");
+        throw Io::CryptoException("EVP_MAC_CTX_new failed");
     }
 
     // init params for specified algorithm
@@ -188,14 +188,14 @@ std::string computeTOTP(std::string_view url, CppUtilities::DateTime time)
     if (EVP_MAC_init(ctx, secret.data(), secret.size(), params) != 1) {
         EVP_MAC_CTX_free(ctx);
         EVP_MAC_free(mac);
-        throw Io::CryptoException("EVP_MAC_init faild");
+        throw Io::CryptoException("EVP_MAC_init failed");
     }
 
     // supply counter
     if (EVP_MAC_update(ctx, counterBytes.data(), counterBytes.size()) != 1) {
         EVP_MAC_CTX_free(ctx);
         EVP_MAC_free(mac);
-        throw Io::CryptoException("EVP_MAC_update faild");
+        throw Io::CryptoException("EVP_MAC_update failed");
     }
 
     // get result
@@ -204,7 +204,7 @@ std::string computeTOTP(std::string_view url, CppUtilities::DateTime time)
     if (EVP_MAC_final(ctx, out.data(), &outLen, out.size()) != 1) {
         EVP_MAC_CTX_free(ctx);
         EVP_MAC_free(mac);
-        throw Io::CryptoException("EVP_MAC_final faild");
+        throw Io::CryptoException("EVP_MAC_final failed");
     }
     EVP_MAC_CTX_free(ctx);
     EVP_MAC_free(mac);
