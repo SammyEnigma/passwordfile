@@ -9,7 +9,6 @@
 
 #include <string>
 
-using namespace std;
 using namespace CppUtilities;
 
 namespace Util {
@@ -37,7 +36,7 @@ OpenSslRandomDevice::result_type OpenSslRandomDevice::operator()() const
     }
 
     // handle error case
-    string errorMsg;
+    std::string errorMsg;
     while (unsigned long errorCode = ERR_get_error()) {
         if (!errorMsg.empty()) {
             errorMsg += '\n';

@@ -57,11 +57,11 @@ Sha256Sum computeSha256Sum(const unsigned char *buffer, std::size_t size)
 /*!
  * \brief Generates a random number using OpenSSL.
  */
-uint32_t generateRandomNumber(uint32_t min, uint32_t max)
+std::uint32_t generateRandomNumber(std::uint32_t min, std::uint32_t max)
 {
     OpenSslRandomDevice dev;
     std::default_random_engine rng(dev());
-    std::uniform_int_distribution<uint32_t> dist(min, max);
+    std::uniform_int_distribution<std::uint32_t> dist(min, max);
     return dist(rng);
 }
 
