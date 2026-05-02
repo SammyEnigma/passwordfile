@@ -5,8 +5,8 @@
 
 #include <c++utilities/chrono/datetime.h>
 #include <c++utilities/conversion/binaryconversion.h>
-#include <c++utilities/conversion/stringconversion.h>
 #include <c++utilities/conversion/stringbuilder.h>
+#include <c++utilities/conversion/stringconversion.h>
 
 #include <openssl/core_names.h>
 #include <openssl/err.h>
@@ -100,7 +100,6 @@ static std::string_view getQueryParam(std::string_view url, std::string_view par
         throw CppUtilities::ConversionException(CppUtilities::argsToString(param, " is empty/missing"));
     }
     return fallback;
-
 }
 } // namespace
 
@@ -166,7 +165,8 @@ std::string computeTOTP(std::string_view url, CppUtilities::DateTime time)
 
     // encode the counter as a 64-bit big-endian integer as per RFC 6238
     auto counterBytes = std::array<unsigned char, 8>();
-    CppUtilities::BE::getBytes(static_cast<std::uint64_t>(time.toTimeStamp()) / static_cast<std::uint64_t>(period), reinterpret_cast<char *>(counterBytes.data()));
+    CppUtilities::BE::getBytes(
+        static_cast<std::uint64_t>(time.toTimeStamp()) / static_cast<std::uint64_t>(period), reinterpret_cast<char *>(counterBytes.data()));
 
     // create context
     EVP_MAC *const mac = EVP_MAC_fetch(nullptr, "HMAC", nullptr);
