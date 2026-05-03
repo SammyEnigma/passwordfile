@@ -58,7 +58,7 @@ use_cpp_utilities(VISIBILITY PUBLIC)
 # find 3rd party libraries
 include(3rdParty)
 use_zlib()
-use_crypto()
+use_crypto(PACKAGE_ARGS 3)
 use_standard_filesystem()
 
 # include modules to apply configuration
