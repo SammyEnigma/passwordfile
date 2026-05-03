@@ -20,7 +20,6 @@
 #include <iomanip>
 #include <random>
 #include <sstream>
-#include <string>
 #include <vector>
 
 /*!
@@ -155,18 +154,20 @@ std::uint32_t generateRandomNumber(std::uint32_t min, std::uint32_t max)
  * - Throws a CppUtilities::ConversionException if URL parameters are invalid/missing.
  * - Throws a Io::CryptoException if an error occurs during cryptographic computation.
  */
-std::string computeTOTP(std::string_view url, CppUtilities::DateTime time)
+TOTP computeTOTP(std::string_view url, CppUtilities::DateTime time)
 {
     // read parameters from URL
     const auto secret = decodeBase32(getQueryParam(url, "secret"));
-    const auto period = CppUtilities::stringToNumber<int>(getQueryParam(url, "period", "30"));
+    const auto period = CppUtilities::stringToNumber<std::uint64_t>(getQueryParam(url, "period", "30"));
     const auto digits = CppUtilities::stringToNumber<int>(getQueryParam(url, "digits", "6"));
     const auto algo = getQueryParam(url, "algorithm", "SHA1");
 
     // encode the counter as a 64-bit big-endian integer as per RFC 6238
+    auto timeStamp = static_cast<std::uint64_t>(time.toTimeStamp());
+    auto counter = timeStamp / period;
+    auto remaining = period - (timeStamp % period);
     auto counterBytes = std::array<unsigned char, 8>();
-    CppUtilities::BE::getBytes(
-        static_cast<std::uint64_t>(time.toTimeStamp()) / static_cast<std::uint64_t>(period), reinterpret_cast<char *>(counterBytes.data()));
+    CppUtilities::BE::getBytes(counter, reinterpret_cast<char *>(counterBytes.data()));
 
     // create context
     EVP_MAC *const mac = EVP_MAC_fetch(nullptr, "HMAC", nullptr);
@@ -213,9 +214,12 @@ std::string computeTOTP(std::string_view url, CppUtilities::DateTime time)
     const auto offset = static_cast<std::size_t>(out[outLen - 1] & 0x0F);
     const auto truncatedHash = (static_cast<std::uint32_t>(out[offset] & 0x7F) << 24) | (static_cast<std::uint32_t>(out[offset + 1] & 0xFF) << 16)
         | (static_cast<std::uint32_t>(out[offset + 2] & 0xFF) << 8) | static_cast<std::uint32_t>(out[offset + 3] & 0xFF);
-
     const auto otp = truncatedHash % static_cast<std::uint32_t>(std::pow(10, digits));
-    return (std::ostringstream() << std::setfill('0') << std::setw(digits) << otp).str();
+    return TOTP{
+        .digits = (std::ostringstream() << std::setfill('0') << std::setw(digits) << otp).str(),
+        .period = CppUtilities::TimeSpan::fromSeconds(static_cast<double>(period)),
+        .remaining = CppUtilities::TimeSpan::fromSeconds(static_cast<double>(remaining)),
+    };
 }
 
 } // namespace OpenSsl

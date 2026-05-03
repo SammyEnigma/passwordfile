@@ -78,10 +78,10 @@ void OpenSslUtilsTests::testComputeTOTP()
     const auto urlInvalidAlgo = "otpauth://totp/foo%20bar?secret=ABCDABCDABCDABCD&period=30&digits=10&algorithm=SHA513";
 
     const auto time = DateTime::fromDateAndTime(2026, 5, 2, 10, 52, 30);
-    CPPUNIT_ASSERT_EQUAL("757702"s, computeTOTP(urlDigits6Period30, time));
-    CPPUNIT_ASSERT_EQUAL("41448963"s, computeTOTP(urlDigits8Period15, time));
-    CPPUNIT_ASSERT_EQUAL("10222808"s, computeTOTP(urlSha256Digits8, time));
-    CPPUNIT_ASSERT_EQUAL("0340892126"s, computeTOTP(urlSha512Digits10, time));
+    CPPUNIT_ASSERT_EQUAL("757702"s, computeTOTP(urlDigits6Period30, time).digits);
+    CPPUNIT_ASSERT_EQUAL("41448963"s, computeTOTP(urlDigits8Period15, time).digits);
+    CPPUNIT_ASSERT_EQUAL("10222808"s, computeTOTP(urlSha256Digits8, time).digits);
+    CPPUNIT_ASSERT_EQUAL("0340892126"s, computeTOTP(urlSha512Digits10, time).digits);
     CPPUNIT_ASSERT_THROW(computeTOTP(urlInvalidSecret, time), ConversionException);
     CPPUNIT_ASSERT_THROW(computeTOTP(urlInvalidAlgo, time), Io::CryptoException);
 }
