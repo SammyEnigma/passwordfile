@@ -152,7 +152,7 @@ std::uint32_t generateRandomNumber(std::uint32_t min, std::uint32_t max)
  * \return Returns the token with as many number of digits as specified in the URL.
  * \throws
  * - Throws a CppUtilities::ConversionException if URL parameters are invalid/missing.
- * - Throws a Io::CryptoException if an error occurs during cryptographic computation.
+ * - Throws an Io::CryptoException if an error occurs during cryptographic computation.
  */
 TOTP computeTOTP(std::string_view url, CppUtilities::DateTime time)
 {
