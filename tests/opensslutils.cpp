@@ -64,8 +64,10 @@ void OpenSslUtilsTests::testComputeSha256Sum()
 
 void OpenSslUtilsTests::testGenerateRandomNumber()
 {
-    CPPUNIT_ASSERT_EQUAL(static_cast<uint32_t>(0u), generateRandomNumber(0u, 0u));
-    CPPUNIT_ASSERT_EQUAL(static_cast<uint32_t>(1u), generateRandomNumber(1u, 1u));
+    CPPUNIT_ASSERT_EQUAL(static_cast<std::uint32_t>(0u), generateRandomNumber(0u, 0u));
+    CPPUNIT_ASSERT_EQUAL(static_cast<std::uint32_t>(1u), generateRandomNumber(1u, 1u));
+    const auto number = generateRandomNumber(5u, 7u);
+    CPPUNIT_ASSERT(number == 5 || number == 6 || number == 7);
 }
 
 void OpenSslUtilsTests::testComputeTOTP()

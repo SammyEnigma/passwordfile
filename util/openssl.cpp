@@ -1,5 +1,4 @@
 #include "./openssl.h"
-#include "./opensslrandomdevice.h"
 
 #include "../io/cryptoexception.h"
 
@@ -12,13 +11,13 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/params.h>
+#include <openssl/rand.h>
 #include <openssl/sha.h>
 
 #include <array>
 #include <cctype>
 #include <cmath>
 #include <iomanip>
-#include <random>
 #include <sstream>
 #include <vector>
 
@@ -139,10 +138,17 @@ Sha256Sum computeSha256Sum(const unsigned char *buffer, std::size_t size)
  */
 std::uint32_t generateRandomNumber(std::uint32_t min, std::uint32_t max)
 {
-    OpenSslRandomDevice dev;
-    std::default_random_engine rng(dev());
-    std::uniform_int_distribution<std::uint32_t> dist(min, max);
-    return dist(rng);
+    auto val = std::uint32_t();
+    if (RAND_bytes(reinterpret_cast<unsigned char *>(&val), sizeof(val)) != 1) {
+        auto errorMsg = std::string();
+        while (unsigned long errorCode = ERR_get_error()) {
+            if (!errorMsg.empty())
+                errorMsg += '\n';
+            errorMsg += ERR_error_string(errorCode, nullptr);
+        }
+        throw Io::CryptoException(std::move(errorMsg));
+    }
+    return min + (val % (max - min + 1));
 }
 
 /*!

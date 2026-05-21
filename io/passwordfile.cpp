@@ -531,7 +531,7 @@ void PasswordFile::write(PasswordFileSaveFlags options)
 
     // prepare password
     Util::OpenSsl::Sha256Sum password;
-    const uint32_t hashCount = (options & PasswordFileSaveFlags::PasswordHashing) ? Util::OpenSsl::generateRandomNumber(1, 100) : 0u;
+    const uint32_t hashCount = (options & PasswordFileSaveFlags::PasswordHashing) ? Util::OpenSsl::generateRandomNumber(100000, 500000) : 0u;
     if (hashCount) {
         // hash password a few times
         password = Util::OpenSsl::computeSha256Sum(reinterpret_cast<unsigned const char *>(m_password.data()), m_password.size());
