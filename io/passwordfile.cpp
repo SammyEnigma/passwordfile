@@ -34,6 +34,7 @@ namespace Io {
 constexpr unsigned int aes256cbcIvSize = 16U;
 constexpr unsigned int aes256blockSize = 32U;
 constexpr unsigned int aes256additionalBufferSize = aes256blockSize * 2;
+constexpr auto authTagSize = Util::OpenSsl::Sha256Sum::size; // HMAC-SHA256
 
 /*!
  * \class PasswordFile
@@ -191,8 +192,8 @@ void PasswordFile::load()
 
     // check version and flags (used in version 0x3 only)
     m_version = m_freader.readUInt32LE();
-    if (m_version > 0x7U) {
-        throw ParsingException(argsToString("Version \"", m_version, "\" is unknown. Only versions 0 to 7 are supported."));
+    if (m_version > 0x6U) {
+        throw ParsingException(argsToString("Version \"", m_version, "\" is unknown. Only versions 0 to 6 are supported."));
     }
     bool decrypterUsed, ivUsed, compressionUsed, hmacUsed;
     if (m_version >= 0x3U) {
@@ -204,7 +205,7 @@ void PasswordFile::load()
             m_saveOptions |= PasswordFileSaveFlags::Compression;
         }
         if ((hmacUsed = flags & 0x10)) {
-            m_saveOptions |= PasswordFileSaveFlags::WriteHMAC;
+            m_saveOptions |= PasswordFileSaveFlags::AuthenticationTag;
         }
         ivUsed = flags & 0x40;
     } else {
@@ -215,11 +216,20 @@ void PasswordFile::load()
         ivUsed = m_version == 0x2U;
     }
 
-    // skip extended header
-    // (the extended header might be used in further versions to
-    //  add additional information without breaking compatibility)
+    // read extended header
+    auto authTag = std::vector<char>();
     if (m_version >= 0x4U) {
-        std::uint16_t extendedHeaderSize = m_freader.readUInt16BE();
+        auto extendedHeaderSize = static_cast<std::size_t>(m_freader.readUInt16BE());
+        // extract authentication tag
+        if (decrypterUsed && hmacUsed) {
+            if (extendedHeaderSize < authTagSize) {
+                throw ParsingException("Authentication tag is truncated.");
+            }
+            authTag.resize(authTagSize);
+            m_file.read(authTag.data(), authTagSize);
+            extendedHeaderSize -= authTagSize;
+        }
+        // skip remaining bytes
         m_extendedHeader = m_freader.readString(extendedHeaderSize);
     } else {
         m_extendedHeader.clear();
@@ -261,18 +271,6 @@ void PasswordFile::load()
     vector<char> rawData;
     m_freader.read(rawData, static_cast<streamoff>(remainingSize));
     vector<char> decryptedData;
-
-    // extract authentication tag
-    vector<char> authTag;
-    constexpr std::size_t authTagSize = 32; // HMAC-SHA256
-    if (decrypterUsed && hmacUsed) {
-        if (rawData.size() < authTagSize) {
-            throw ParsingException("Authentication tag is truncated.");
-        }
-        authTag.assign(rawData.end() - static_cast<std::ptrdiff_t>(authTagSize), rawData.end());
-        rawData.resize(rawData.size() - authTagSize);
-        remainingSize = rawData.size();
-    }
 
     if (decrypterUsed) {
         if (remainingSize > numeric_limits<int>::max()) {
@@ -408,16 +406,13 @@ void PasswordFile::load()
  */
 std::uint32_t PasswordFile::mininumVersion(PasswordFileSaveFlags options) const
 {
-    if (options & PasswordFileSaveFlags::WriteHMAC) {
-        return 0x7U; // HMAC authentication requires at least version 7
-    }
     if (options & PasswordFileSaveFlags::PasswordHashing) {
         return 0x6U; // password hashing requires at least version 6
     }
     if (!m_encryptedExtendedHeader.empty()) {
         return 0x5U; // encrypted extended header requires at least version 5
     }
-    if (!m_extendedHeader.empty()) {
+    if (!m_extendedHeader.empty() || (options & PasswordFileSaveFlags::AuthenticationTag)) {
         return 0x4U; // regular extended header requires at least version 4
     }
     return 0x3U; // lowest supported version by the serializer
@@ -498,19 +493,10 @@ void PasswordFile::write(PasswordFileSaveFlags options)
     if (options & PasswordFileSaveFlags::Compression) {
         flags |= 0x20;
     }
-    if (options & PasswordFileSaveFlags::WriteHMAC) {
+    if (options & PasswordFileSaveFlags::AuthenticationTag) {
         flags |= 0x10;
     }
     m_fwriter.writeByte(flags);
-
-    // write extended header
-    if (version >= 0x4U) {
-        if (m_extendedHeader.size() > numeric_limits<std::uint16_t>::max()) {
-            throw runtime_error("Extended header exceeds maximum size.");
-        }
-        m_fwriter.writeUInt16BE(static_cast<std::uint16_t>(m_extendedHeader.size()));
-        m_fwriter.writeString(m_extendedHeader);
-    }
 
     // serialize root entry and descendants
     stringstream buffstr(stringstream::in | stringstream::out | stringstream::binary);
@@ -559,75 +545,89 @@ void PasswordFile::write(PasswordFileSaveFlags options)
         throw CryptoException("size exceeds limit");
     }
 
-    // write data without encryption
-    if (!(options & PasswordFileSaveFlags::Encryption)) {
-        // write data to file
-        m_file.write(decryptedData.data(), static_cast<streamsize>(size));
-        m_file.flush();
-        return;
-    }
-
-    // prepare password
+    // define variables for encryption
     Util::OpenSsl::Sha256Sum password;
     const uint32_t hashCount = (options & PasswordFileSaveFlags::PasswordHashing) ? Util::OpenSsl::generateRandomNumber(100000, 500000) : 0u;
-    if (hashCount) {
-        // hash password a few times
-        password = Util::OpenSsl::computeSha256Sum(reinterpret_cast<unsigned const char *>(m_password.data()), m_password.size());
-        for (uint32_t i = 1; i < hashCount; ++i) {
-            password = Util::OpenSsl::computeSha256Sum(password.data, Util::OpenSsl::Sha256Sum::size);
-        }
-    } else {
-        m_password.copy(reinterpret_cast<char *>(password.data), Util::OpenSsl::Sha256Sum::size);
-    }
-
-    // initiate ctx, encrypt data
     EVP_CIPHER_CTX *ctx = nullptr;
     unsigned char iv[aes256cbcIvSize];
-    int outlen1, outlen2;
-    encryptedData.resize(size + aes256additionalBufferSize);
-    if (RAND_bytes(iv, aes256cbcIvSize) != 1 || (ctx = EVP_CIPHER_CTX_new()) == nullptr
-        || EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, password.data, iv) != 1
-        || EVP_EncryptUpdate(ctx, reinterpret_cast<unsigned char *>(encryptedData.data()), &outlen1,
-               reinterpret_cast<unsigned char *>(decryptedData.data()), static_cast<int>(size))
-            != 1
-        || EVP_EncryptFinal_ex(ctx, reinterpret_cast<unsigned char *>(encryptedData.data()) + outlen1, &outlen2) != 1) {
-        // handle encryption error
+    auto ciphertextSize = std::size_t();
+
+    if (options & PasswordFileSaveFlags::Encryption) {
+        // prepare password
+        if (hashCount) {
+            // hash password a few times
+            password = Util::OpenSsl::computeSha256Sum(reinterpret_cast<unsigned const char *>(m_password.data()), m_password.size());
+            for (uint32_t i = 1; i < hashCount; ++i) {
+                password = Util::OpenSsl::computeSha256Sum(password.data, Util::OpenSsl::Sha256Sum::size);
+            }
+        } else {
+            m_password.copy(reinterpret_cast<char *>(password.data), Util::OpenSsl::Sha256Sum::size);
+        }
+
+        // initiate ctx, encrypt data
+        int outlen1, outlen2;
+        encryptedData.resize(size + aes256additionalBufferSize);
+        if (RAND_bytes(iv, aes256cbcIvSize) != 1 || (ctx = EVP_CIPHER_CTX_new()) == nullptr
+            || EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, password.data, iv) != 1
+            || EVP_EncryptUpdate(ctx, reinterpret_cast<unsigned char *>(encryptedData.data()), &outlen1,
+                   reinterpret_cast<unsigned char *>(decryptedData.data()), static_cast<int>(size))
+                != 1
+            || EVP_EncryptFinal_ex(ctx, reinterpret_cast<unsigned char *>(encryptedData.data()) + outlen1, &outlen2) != 1) {
+            // handle encryption error
+            if (ctx) {
+                EVP_CIPHER_CTX_free(ctx);
+            }
+            string msg;
+            auto errorCode = ERR_get_error();
+            while (errorCode) {
+                if (!msg.empty()) {
+                    msg += "\n";
+                }
+                msg += ERR_error_string(errorCode, nullptr);
+                errorCode = ERR_get_error();
+            }
+            throw CryptoException(std::move(msg));
+        }
         if (ctx) {
             EVP_CIPHER_CTX_free(ctx);
         }
-        string msg;
-        auto errorCode = ERR_get_error();
-        while (errorCode) {
-            if (!msg.empty()) {
-                msg += "\n";
-            }
-            msg += ERR_error_string(errorCode, nullptr);
-            errorCode = ERR_get_error();
+        ciphertextSize = static_cast<std::size_t>(outlen1 + outlen2);
+    }
+
+    // write extended header
+    if (version >= 0x4U) {
+        auto extendedHeaderSize = m_extendedHeader.size();
+        if (options & PasswordFileSaveFlags::AuthenticationTag) {
+            extendedHeaderSize += authTagSize;
         }
-        throw CryptoException(std::move(msg));
+        if (m_extendedHeader.size() > numeric_limits<std::uint16_t>::max()) {
+            throw runtime_error("Extended header exceeds maximum size.");
+        }
+        m_fwriter.writeUInt16BE(static_cast<std::uint16_t>(extendedHeaderSize));
+
+        // write HMAC-SHA256 authentication tag
+        if (options & PasswordFileSaveFlags::AuthenticationTag) {
+            vector<unsigned char> hmacInput;
+            hmacInput.reserve(static_cast<std::size_t>(aes256cbcIvSize) + ciphertextSize);
+            hmacInput.insert(hmacInput.end(), iv, iv + aes256cbcIvSize);
+            hmacInput.insert(hmacInput.end(), reinterpret_cast<const unsigned char *>(encryptedData.data()),
+                reinterpret_cast<const unsigned char *>(encryptedData.data()) + ciphertextSize);
+            const auto hmacTag = Util::OpenSsl::computeHmacSha256(password.data, authTagSize, hmacInput.data(), hmacInput.size());
+            m_file.write(reinterpret_cast<const char *>(hmacTag.data), authTagSize);
+        }
+
+        m_fwriter.writeString(m_extendedHeader);
     }
 
-    if (ctx) {
-        EVP_CIPHER_CTX_free(ctx);
-    }
-
-    // write encrypted data to file
-    if (version >= 0x6U) {
-        m_fwriter.writeUInt32BE(hashCount);
-    }
-    m_file.write(reinterpret_cast<char *>(iv), aes256cbcIvSize);
-    const auto ciphertextSize = static_cast<std::size_t>(outlen1 + outlen2);
-    m_file.write(reinterpret_cast<const char *>(encryptedData.data()), static_cast<streamsize>(ciphertextSize));
-
-    // write HMAC-SHA256 authentication tag
-    if (options & PasswordFileSaveFlags::WriteHMAC) {
-        vector<unsigned char> hmacInput;
-        hmacInput.reserve(static_cast<std::size_t>(aes256cbcIvSize) + ciphertextSize);
-        hmacInput.insert(hmacInput.end(), iv, iv + aes256cbcIvSize);
-        hmacInput.insert(hmacInput.end(), reinterpret_cast<const unsigned char *>(encryptedData.data()),
-            reinterpret_cast<const unsigned char *>(encryptedData.data()) + ciphertextSize);
-        const auto hmacTag = Util::OpenSsl::computeHmacSha256(password.data, Util::OpenSsl::Sha256Sum::size, hmacInput.data(), hmacInput.size());
-        m_file.write(reinterpret_cast<const char *>(hmacTag.data), Util::OpenSsl::Sha256Sum::size);
+    // write data to file
+    if (options & PasswordFileSaveFlags::Encryption) {
+        if (version >= 0x6U) {
+            m_fwriter.writeUInt32BE(hashCount);
+        }
+        m_file.write(reinterpret_cast<char *>(iv), aes256cbcIvSize);
+        m_file.write(reinterpret_cast<const char *>(encryptedData.data()), static_cast<streamsize>(ciphertextSize));
+    } else {
+        m_file.write(decryptedData.data(), static_cast<streamsize>(size));
     }
     m_file.flush();
 }
@@ -865,7 +865,7 @@ string flagsToString(PasswordFileSaveFlags flags)
     if (flags & PasswordFileSaveFlags::PasswordHashing) {
         options.emplace_back("password hashing");
     }
-    if (flags & PasswordFileSaveFlags::WriteHMAC) {
+    if (flags & PasswordFileSaveFlags::AuthenticationTag) {
         options.emplace_back("HMAC");
     }
     if (options.empty()) {

@@ -123,10 +123,10 @@ void PasswordFileTests::testReading(const string &context, const string &testfil
     const NodeEntry *const rootEntry2 = file.rootEntry();
     if (testfilesMod) {
         if (withHMAC && extendedHeaderMod) {
-            CPPUNIT_ASSERT_EQUAL_MESSAGE(context, static_cast<std::uint32_t>(7), file.version());
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(context, static_cast<std::uint32_t>(6), file.version());
             CPPUNIT_ASSERT_EQUAL_MESSAGE(context, "encryption, password hashing, HMAC"s, flagsToString(file.saveOptions()));
         } else if (withHMAC) {
-            CPPUNIT_ASSERT_EQUAL_MESSAGE(context, static_cast<std::uint32_t>(7), file.version());
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(context, static_cast<std::uint32_t>(4), file.version());
             CPPUNIT_ASSERT_EQUAL_MESSAGE(context, "encryption, HMAC"s, flagsToString(file.saveOptions()));
         } else if (extendedHeaderMod) {
             CPPUNIT_ASSERT_EQUAL_MESSAGE(context, static_cast<std::uint32_t>(6), file.version());
@@ -178,7 +178,7 @@ void PasswordFileTests::testBasicWriting()
     new AccountEntry("newAccount", file.rootEntry());
     file.setPassword("654321");
     file.doBackup();
-    file.save(PasswordFileSaveFlags::Encryption | PasswordFileSaveFlags::WriteHMAC);
+    file.save(PasswordFileSaveFlags::Encryption | PasswordFileSaveFlags::AuthenticationTag);
 
     // check results using the reading test
     testReading("basic writing", testfile1, string(), testfile2, "654321", true, false, true);
@@ -219,7 +219,7 @@ void PasswordFileTests::testExtendedWriting()
     file.extendedHeader() = "foo";
     file.encryptedExtendedHeader() = "bar";
     file.doBackup();
-    file.save(PasswordFileSaveFlags::Encryption | PasswordFileSaveFlags::PasswordHashing | PasswordFileSaveFlags::WriteHMAC);
+    file.save(PasswordFileSaveFlags::Encryption | PasswordFileSaveFlags::PasswordHashing | PasswordFileSaveFlags::AuthenticationTag);
 
     // check results using the reading test
     testReading("extended writing", testfile1, "123456", testfile2, "654321", true, true, true);

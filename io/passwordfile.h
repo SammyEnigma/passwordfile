@@ -17,21 +17,21 @@ namespace Io {
 class NodeEntry;
 
 enum class PasswordFileOpenFlags : std::uint64_t {
-    None = 0,
-    ReadOnly = (1 << 0),
-    Default = None,
+    None = 0, /**< none of the optional behavior is enabled, open the file in read-write mode */
+    ReadOnly = (1 << 0), /**< open the file in read-only mode */
+    Default = None, /**< default behavior, open the file in read-write mode */
 };
 
 PASSWORD_FILE_EXPORT std::string flagsToString(PasswordFileOpenFlags flags);
 
 enum class PasswordFileSaveFlags : std::uint64_t {
-    None = 0,
-    Encryption = (1 << 0),
-    Compression = (1 << 1),
-    PasswordHashing = (1 << 2),
-    AllowToCreateNewFile = (1 << 3),
-    WriteHMAC = (1 << 4),
-    Default = Encryption | Compression | PasswordHashing | AllowToCreateNewFile | WriteHMAC,
+    None = 0, /**< none of the optional behavior is enabled */
+    Encryption = (1 << 0), /**< enable encryption */
+    Compression = (1 << 1), /**< enable compression */
+    PasswordHashing = (1 << 2), /**< enable password hashing */
+    AllowToCreateNewFile = (1 << 3), /**< create a new file if the file does not exist */
+    AuthenticationTag = (1 << 4), /**< add an HMAC-SHA256 authentication code */
+    Default = Encryption | Compression | PasswordHashing | AllowToCreateNewFile | AuthenticationTag, /**< default behavior for storing data encrypted in the most secure and efficient way */
 };
 
 PASSWORD_FILE_EXPORT std::string flagsToString(PasswordFileSaveFlags flags);
