@@ -18,7 +18,7 @@ class NodeEntry;
 
 enum class PasswordFileOpenFlags : std::uint64_t {
     None = 0,
-    ReadOnly = 1,
+    ReadOnly = (1 << 0),
     Default = None,
 };
 
@@ -30,7 +30,8 @@ enum class PasswordFileSaveFlags : std::uint64_t {
     Compression = (1 << 1),
     PasswordHashing = (1 << 2),
     AllowToCreateNewFile = (1 << 3),
-    Default = Encryption | Compression | PasswordHashing | AllowToCreateNewFile,
+    WriteHMAC = (1 << 4),
+    Default = Encryption | Compression | PasswordHashing | AllowToCreateNewFile | WriteHMAC,
 };
 
 PASSWORD_FILE_EXPORT std::string flagsToString(PasswordFileSaveFlags flags);

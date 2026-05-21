@@ -29,7 +29,7 @@ public:
 
     void testReading();
     void testReading(const string &context, const string &testfile1path, const string &testfile1password, const string &testfile2,
-        const string &testfile2password, bool testfile2Mod, bool extendedHeaderMod);
+        const string &testfile2password, bool testfile2Mod, bool extendedHeaderMod, bool withHMAC = false);
     void testBasicWriting();
     void testExtendedWriting();
 };
@@ -53,7 +53,7 @@ void PasswordFileTests::testReading()
 }
 
 void PasswordFileTests::testReading(const string &context, const string &testfile1path, const string &testfile1password, const string &testfile2,
-    const string &testfile2password, bool testfilesMod, bool extendedHeaderMod)
+    const string &testfile2password, bool testfilesMod, bool extendedHeaderMod, bool withHMAC)
 {
     PasswordFile file;
 
@@ -122,7 +122,13 @@ void PasswordFileTests::testReading(const string &context, const string &testfil
     file.load();
     const NodeEntry *const rootEntry2 = file.rootEntry();
     if (testfilesMod) {
-        if (extendedHeaderMod) {
+        if (withHMAC && extendedHeaderMod) {
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(context, static_cast<std::uint32_t>(7), file.version());
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(context, "encryption, password hashing, HMAC"s, flagsToString(file.saveOptions()));
+        } else if (withHMAC) {
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(context, static_cast<std::uint32_t>(7), file.version());
+            CPPUNIT_ASSERT_EQUAL_MESSAGE(context, "encryption, HMAC"s, flagsToString(file.saveOptions()));
+        } else if (extendedHeaderMod) {
             CPPUNIT_ASSERT_EQUAL_MESSAGE(context, static_cast<std::uint32_t>(6), file.version());
             CPPUNIT_ASSERT_EQUAL_MESSAGE(context, "encryption, password hashing"s, flagsToString(file.saveOptions()));
         } else {
@@ -172,10 +178,10 @@ void PasswordFileTests::testBasicWriting()
     new AccountEntry("newAccount", file.rootEntry());
     file.setPassword("654321");
     file.doBackup();
-    file.save(PasswordFileSaveFlags::Encryption);
+    file.save(PasswordFileSaveFlags::Encryption | PasswordFileSaveFlags::WriteHMAC);
 
     // check results using the reading test
-    testReading("basic writing", testfile1, string(), testfile2, "654321", true, false);
+    testReading("basic writing", testfile1, string(), testfile2, "654321", true, false, true);
 
     // check backup files
     testReading("basic writing", testfile1 + ".backup", "123456", testfile2 + ".backup", string(), false, false);
@@ -213,10 +219,10 @@ void PasswordFileTests::testExtendedWriting()
     file.extendedHeader() = "foo";
     file.encryptedExtendedHeader() = "bar";
     file.doBackup();
-    file.save(PasswordFileSaveFlags::Encryption | PasswordFileSaveFlags::PasswordHashing);
+    file.save(PasswordFileSaveFlags::Encryption | PasswordFileSaveFlags::PasswordHashing | PasswordFileSaveFlags::WriteHMAC);
 
     // check results using the reading test
-    testReading("extended writing", testfile1, "123456", testfile2, "654321", true, true);
+    testReading("extended writing", testfile1, "123456", testfile2, "654321", true, true, true);
 
     // check backup files
     testReading("extended writing", testfile1 + ".backup", "123456", testfile2 + ".backup", string(), false, false);

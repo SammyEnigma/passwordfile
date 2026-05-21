@@ -32,6 +32,7 @@ struct TOTP {
 PASSWORD_FILE_EXPORT void init();
 PASSWORD_FILE_EXPORT void clean();
 PASSWORD_FILE_EXPORT Sha256Sum computeSha256Sum(const unsigned char *buffer, std::size_t size);
+PASSWORD_FILE_EXPORT Sha256Sum computeHmacSha256(const unsigned char *key, std::size_t keySize, const unsigned char *data, std::size_t dataSize);
 PASSWORD_FILE_EXPORT std::uint32_t generateRandomNumber(std::uint32_t min, std::uint32_t max);
 PASSWORD_FILE_EXPORT TOTP computeTOTP(std::string_view url, CppUtilities::DateTime time);
 

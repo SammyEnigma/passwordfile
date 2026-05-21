@@ -10,6 +10,7 @@
 #include <openssl/core_names.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/hmac.h>
 #include <openssl/params.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
@@ -131,6 +132,19 @@ Sha256Sum computeSha256Sum(const unsigned char *buffer, std::size_t size)
     auto hash = Sha256Sum();
     SHA256(buffer, size, hash.data);
     return hash;
+}
+
+/*!
+ * \brief Computes an HMAC-SHA256 using OpenSSL.
+ */
+Sha256Sum computeHmacSha256(const unsigned char *key, std::size_t keySize, const unsigned char *data, std::size_t dataSize)
+{
+    auto result = Sha256Sum();
+    unsigned int resultLen = Sha256Sum::size;
+    if (HMAC(EVP_sha256(), key, static_cast<int>(keySize), data, dataSize, result.data, &resultLen) == nullptr) {
+        throw Io::CryptoException("HMAC-SHA256 computation failed.");
+    }
+    return result;
 }
 
 /*!
