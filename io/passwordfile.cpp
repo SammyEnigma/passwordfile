@@ -315,7 +315,7 @@ void PasswordFile::load()
         }
 
         // verify HMAC-SHA256 authentication tag (version >= 7)
-        if (!authTag.empty()) {
+        if (hmacUsed) {
             vector<unsigned char> hmacInput;
             hmacInput.reserve(static_cast<std::size_t>(aes256cbcIvSize) + rawData.size());
             hmacInput.insert(hmacInput.end(), iv, iv + aes256cbcIvSize);
