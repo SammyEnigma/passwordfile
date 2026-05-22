@@ -128,6 +128,9 @@ PasswordFile::~PasswordFile()
  */
 void PasswordFile::open(PasswordFileOpenFlags options)
 {
+    if (options & PasswordFileOpenFlags::New) {
+        return create();
+    }
     close();
     if (m_path.empty()) {
         throw std::ios_base::failure("Unable to open file because path is empty.");
@@ -174,6 +177,7 @@ void PasswordFile::create()
         throw std::ios_base::failure("Unable to create file because path is empty.");
     }
     m_file.open(m_path, fstream::out | fstream::trunc | fstream::binary);
+    m_openOptions += PasswordFileOpenFlags::New;
 }
 
 /*!
@@ -738,8 +742,14 @@ void PasswordFile::doBackup()
         return;
     }
 
+    // reopen the file if it is newly created and hence still in write-only mode
+    if (m_openOptions & PasswordFileOpenFlags::New) {
+        auto flags = m_openOptions;
+        open(flags -= PasswordFileOpenFlags::New);
+    }
+
     m_file.seekg(0);
-    fstream backupFile(m_path + ".backup", ios::out | ios::trunc | ios::binary);
+    NativeFileStream backupFile(m_path + ".backup", ios::out | ios::trunc | ios::binary);
     backupFile.exceptions(ios_base::failbit | ios_base::badbit);
     backupFile << m_file.rdbuf();
     backupFile.close();

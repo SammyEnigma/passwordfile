@@ -19,6 +19,7 @@ class NodeEntry;
 enum class PasswordFileOpenFlags : std::uint64_t {
     None = 0, /**< none of the optional behavior is enabled, open the file in read-write mode */
     ReadOnly = (1 << 0), /**< open the file in read-only mode */
+    New = (1 << 1), /**< a new file is created and PasswordFileOpenFlags::ReadOnly ignored */
     Default = None, /**< default behavior, open the file in read-write mode */
 };
 
