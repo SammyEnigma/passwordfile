@@ -21,6 +21,7 @@ class PasswordFileTests : public TestFixture {
     CPPUNIT_TEST(testReading);
     CPPUNIT_TEST(testBasicWriting);
     CPPUNIT_TEST(testExtendedWriting);
+    CPPUNIT_TEST(testAuthTagVerification);
     CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -32,6 +33,7 @@ public:
         const string &testfile2password, bool testfile2Mod, bool extendedHeaderMod, bool withHMAC = false);
     void testBasicWriting();
     void testExtendedWriting();
+    void testAuthTagVerification();
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION(PasswordFileTests);
@@ -240,4 +242,27 @@ void PasswordFileTests::testExtendedWriting()
     auto path = std::list<std::string>{ "newAccount" };
     CPPUNIT_ASSERT(file.rootEntry());
     CPPUNIT_ASSERT(!file.rootEntry()->entryByPath(path));
+}
+
+void PasswordFileTests::testAuthTagVerification()
+{
+    auto file = PasswordFile(workingCopyPath("testfile3-hmac.pwmgr"), "123456");
+    file.open();
+    file.load();
+    CPPUNIT_ASSERT_MESSAGE("auth tag present", file.saveOptions() & PasswordFileSaveFlags::AuthenticationTag);
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("auth tag not returned as extended data", ""s, file.extendedHeader());
+
+    // corrupt file and try reloading it
+    file.fileStream().seekp(0x78);
+    file.fileStream().put(0x00);
+    file.close();
+    file.clearEntries();
+    file.open();
+    auto error = std::string();
+    try {
+        file.load();
+    } catch (const CryptoException &e) {
+        error = e.what();
+    }
+    CPPUNIT_ASSERT_EQUAL_MESSAGE("auth failed", "Authentication failed: data integrity check failed (wrong password or file corrupted)."s, error);
 }
