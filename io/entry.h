@@ -52,7 +52,7 @@ public:
     static constexpr EntryType denotedEntryType(std::uint8_t version);
 
 protected:
-    Entry(const std::string &label = std::string(), NodeEntry *parent = nullptr);
+    Entry(const std::string &label = {}, NodeEntry *parent = nullptr);
     Entry(const Entry &other);
 
 private:

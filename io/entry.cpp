@@ -227,7 +227,7 @@ NodeEntry::NodeEntry(istream &stream)
     : m_expandedByDefault(true)
 {
     BinaryReader reader(&stream);
-    const std::uint8_t version = reader.readByte();
+    const auto version = reader.readByte();
     if (!denotesNodeEntry(version)) {
         throw ParsingException("Node entry expected.");
     }
@@ -237,16 +237,16 @@ NodeEntry::NodeEntry(istream &stream)
     setLabel(reader.readLengthPrefixedString());
     // read extended header for version 0x1
     if (version == 0x1) {
-        std::uint16_t extendedHeaderSize = reader.readUInt16BE();
+        auto extendedHeaderSize = reader.readUInt16BE();
         if (extendedHeaderSize >= 1) {
-            std::uint8_t flags = reader.readByte();
+            auto flags = reader.readByte();
             m_expandedByDefault = flags & 0x80;
             extendedHeaderSize -= 1;
         }
         m_extendedData = reader.readString(extendedHeaderSize);
     }
-    const std::uint32_t childCount = reader.readUInt32BE();
-    for (std::uint32_t i = 0; i != childCount; ++i) {
+    const auto childCount = reader.readUInt32BE();
+    for (auto i = std::uint32_t(0); i != childCount; ++i) {
         Entry::parse(stream)->setParent(this);
     }
 }
@@ -396,7 +396,7 @@ void NodeEntry::make(ostream &stream) const
     writer.writeLengthPrefixedString(label());
     if (!isExpandedByDefault() || !m_extendedData.empty()) {
         writer.writeUInt16BE(static_cast<std::uint16_t>(1 + m_extendedData.size())); // extended header is 1 byte long
-        std::uint8_t flags = 0x00;
+        auto flags = std::uint8_t{0x00};
         if (isExpandedByDefault()) {
             flags |= 0x80;
         }
@@ -448,7 +448,7 @@ AccountEntry::AccountEntry(const string &label, NodeEntry *parent)
 AccountEntry::AccountEntry(istream &stream)
 {
     BinaryReader reader(&stream);
-    std::uint8_t version = reader.readByte();
+    auto version = reader.readByte();
     if (denotesNodeEntry(version)) {
         throw ParsingException("Account entry expected.");
     }
@@ -459,12 +459,12 @@ AccountEntry::AccountEntry(istream &stream)
     setLabel(reader.readLengthPrefixedString());
     // read extended header for version 0x1
     if (version == 0x1) {
-        const std::uint16_t extendedHeaderSize = reader.readUInt16BE();
+        const auto extendedHeaderSize = reader.readUInt16BE();
         // currently there's nothing to read here
         m_extendedData = reader.readString(extendedHeaderSize);
     }
-    const std::uint32_t fieldCount = reader.readUInt32BE();
-    for (std::uint32_t i = 0; i != fieldCount; ++i) {
+    const auto fieldCount = reader.readUInt32BE();
+    for (auto i = std::uint32_t(0); i != fieldCount; ++i) {
         m_fields.push_back(Field(this, stream));
     }
 }

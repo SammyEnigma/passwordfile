@@ -41,14 +41,14 @@ Field::Field(AccountEntry *tiedAccount, istream &stream)
     }
     m_name = reader.readLengthPrefixedString();
     m_value = reader.readLengthPrefixedString();
-    std::uint8_t type = reader.readByte();
+    auto type = reader.readByte();
     if (!isValidType(type)) {
         throw ParsingException("Field type is not supported.");
     }
     m_type = static_cast<FieldType>(type);
     // read extended header for version 0x1
     if (version == 0x1) {
-        const std::uint16_t extendedHeaderSize = reader.readUInt16BE();
+        const auto extendedHeaderSize = reader.readUInt16BE();
         // currently there's nothing to read here
         m_extendedData = reader.readString(extendedHeaderSize);
     }

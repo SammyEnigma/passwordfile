@@ -319,7 +319,7 @@ size_t Aes::encrypt(char **data, std::size_t length, char *key)
     if (!setKey(key))
         return 0;
 
-    size_t oldLength = length;
+    auto oldLength = length;
     while (length % 16)
         ++length;
 
@@ -330,7 +330,7 @@ size_t Aes::encrypt(char **data, std::size_t length, char *key)
     delete[] * data;
     *data = buffer;
 
-    size_t curBlock = 0;
+    auto curBlock = std::size_t{};
 
     do {
         for (byte col = 0; col < 4; ++col)
@@ -354,7 +354,7 @@ size_t Aes::decrypt(char **data, std::size_t length, char *key)
     if (!setKey(key))
         return 0;
 
-    std::size_t oldLength = length;
+    auto oldLength = length;
     while (length % 16)
         ++length;
 
@@ -365,7 +365,7 @@ size_t Aes::decrypt(char **data, std::size_t length, char *key)
     delete[] * data;
     *data = buffer;
 
-    std::size_t curBlock = 0;
+    auto curBlock = std::size_t{};
 
     do {
         for (byte col = 0; col < 4; ++col)

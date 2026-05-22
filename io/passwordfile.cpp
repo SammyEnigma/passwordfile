@@ -32,9 +32,9 @@ using namespace CppUtilities;
 
 namespace Io {
 
-constexpr unsigned int aes256cbcIvSize = 16U;
-constexpr unsigned int aes256blockSize = 32U;
-constexpr unsigned int aes256additionalBufferSize = aes256blockSize * 2;
+constexpr auto aes256cbcIvSize = 16U;
+constexpr auto aes256blockSize = 32U;
+constexpr auto aes256additionalBufferSize = aes256blockSize * 2U;
 
 enum class ExtendedHeaderFieldIds : std::uint32_t {
     AuthTag = 0x686D6163U,
@@ -207,7 +207,7 @@ void PasswordFile::load()
     if (m_version > 0x6U) {
         throw ParsingException(argsToString("Version \"", m_version, "\" is unknown. Only versions 0 to 6 are supported."));
     }
-    bool decrypterUsed, ivUsed, compressionUsed, hmacUsed;
+    auto decrypterUsed = false, ivUsed = false, compressionUsed = false, hmacUsed = false;
     if (m_version >= 0x3U) {
         const auto flags = m_freader.readByte();
         if ((decrypterUsed = flags & 0x80)) {
@@ -224,7 +224,6 @@ void PasswordFile::load()
         if ((decrypterUsed = m_version >= 0x1U)) {
             m_saveOptions |= PasswordFileSaveFlags::Encryption;
         }
-        compressionUsed = hmacUsed = false;
         ivUsed = m_version == 0x2U;
     }
 
@@ -271,7 +270,7 @@ void PasswordFile::load()
     m_file.seekg(static_cast<streamoff>(headerSize), ios_base::beg);
 
     // read hash count (always present for version >= 6 when encrypted)
-    uint32_t hashCount = 0U;
+    auto hashCount = std::uint32_t();
     if (m_version >= 0x6U && decrypterUsed) {
         if (remainingSize < 4) {
             throw ParsingException("Hash count truncated.");
@@ -297,9 +296,9 @@ void PasswordFile::load()
     }
 
     // decrypt contents
-    vector<char> rawData;
+    auto rawData = std::vector<char>();
     m_freader.read(rawData, static_cast<streamoff>(remainingSize));
-    vector<char> decryptedData;
+    auto decryptedData = std::vector<char>();
 
     if (decrypterUsed) {
         if (remainingSize > numeric_limits<int>::max()) {
@@ -307,7 +306,7 @@ void PasswordFile::load()
         }
 
         // prepare password
-        Util::OpenSsl::Sha256Sum password;
+        auto password = Util::OpenSsl::Sha256Sum();
         if (hashCount) {
             // hash the password as often as it has been hashed when writing the file
             password = Util::OpenSsl::computeSha256Sum(reinterpret_cast<unsigned const char *>(m_password.data()), m_password.size());
@@ -320,7 +319,7 @@ void PasswordFile::load()
 
         // verify HMAC-SHA256 authentication tag (version >= 7)
         if (hmacUsed) {
-            vector<unsigned char> hmacInput;
+            auto hmacInput = std::vector<unsigned char>();
             hmacInput.reserve(static_cast<std::size_t>(aes256cbcIvSize) + rawData.size());
             hmacInput.insert(hmacInput.end(), iv, iv + aes256cbcIvSize);
             hmacInput.insert(hmacInput.end(), rawData.begin(), rawData.end());
@@ -334,7 +333,7 @@ void PasswordFile::load()
         // initiate ctx, decrypt data
         EVP_CIPHER_CTX *ctx = nullptr;
         decryptedData.resize(remainingSize + aes256additionalBufferSize);
-        int outlen1, outlen2;
+        auto outlen1 = int(), outlen2 = int();
         if ((ctx = EVP_CIPHER_CTX_new()) == nullptr || EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, password.data, iv) != 1
             || EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char *>(decryptedData.data()), &outlen1,
                    reinterpret_cast<unsigned char *>(rawData.data()), static_cast<int>(remainingSize))
@@ -344,7 +343,7 @@ void PasswordFile::load()
             if (ctx) {
                 EVP_CIPHER_CTX_free(ctx);
             }
-            string msg;
+            auto msg = std::string();
             auto errorCode = ERR_get_error();
             while (errorCode) {
                 if (!msg.empty()) {
@@ -405,7 +404,7 @@ void PasswordFile::load()
     }
 
     // parse contents
-    stringstream decryptedStream(stringstream::in | stringstream::out | stringstream::binary);
+    auto decryptedStream = std::stringstream(stringstream::in | stringstream::out | stringstream::binary);
     decryptedStream.exceptions(ios_base::failbit | ios_base::badbit);
     try {
 #if defined(__GLIBCXX__) && !defined(_LIBCPP_VERSION)
@@ -515,7 +514,7 @@ void PasswordFile::write(PasswordFileSaveFlags options)
     m_fwriter.writeUInt32LE(version);
 
     // write flags
-    std::uint8_t flags = 0x00;
+    auto flags = std::uint8_t{0x00};
     if (options & PasswordFileSaveFlags::Encryption) {
         flags |= 0x80 | 0x40;
     }
@@ -549,9 +548,9 @@ void PasswordFile::write(PasswordFileSaveFlags options)
 
     // write the data to a buffer
     buffstr.seekg(0);
-    vector<char> decryptedData(size, 0);
+    auto decryptedData = std::vector<char>(size, 0);
     buffstr.read(decryptedData.data(), static_cast<streamoff>(size));
-    vector<char> encryptedData;
+    auto encryptedData = std::vector<char>();
 
     // compress data
     if (options & PasswordFileSaveFlags::Compression) {
@@ -575,8 +574,8 @@ void PasswordFile::write(PasswordFileSaveFlags options)
     }
 
     // define variables for encryption
-    Util::OpenSsl::Sha256Sum password;
-    const uint32_t hashCount = (options & PasswordFileSaveFlags::PasswordHashing) ? Util::OpenSsl::generateRandomNumber(100000, 500000) : 0u;
+    auto password = Util::OpenSsl::Sha256Sum();
+    const auto hashCount = (options & PasswordFileSaveFlags::PasswordHashing) ? Util::OpenSsl::generateRandomNumber(100000, 500000) : 0u;
     EVP_CIPHER_CTX *ctx = nullptr;
     unsigned char iv[aes256cbcIvSize];
     auto ciphertextSize = std::size_t();
@@ -702,7 +701,7 @@ void PasswordFile::exportToTextfile(const string &targetPath) const
             output << "    ";
         }
     };
-    function<void(const Entry *entry, int level)> printNode;
+    auto printNode = std::function<void(const Entry *entry, int level)>();
     printNode = [&output, &printNode, &printIndention](const Entry *entry, int level) {
         printIndention(level);
         output << " - " << entry->label() << endl;
@@ -749,7 +748,7 @@ void PasswordFile::doBackup()
     }
 
     m_file.seekg(0);
-    NativeFileStream backupFile(m_path + ".backup", ios::out | ios::trunc | ios::binary);
+    auto backupFile = NativeFileStream(m_path + ".backup", ios::out | ios::trunc | ios::binary);
     backupFile.exceptions(ios_base::failbit | ios_base::badbit);
     backupFile << m_file.rdbuf();
     backupFile.close();
@@ -851,7 +850,7 @@ size_t PasswordFile::size()
  */
 string PasswordFile::summary(PasswordFileSaveFlags saveOptions) const
 {
-    string result = "<table>";
+    auto result = std::string("<table>");
     if (!m_path.empty()) {
         result += argsToString("<tr><td>Path:</td><td>", m_path, "</td></tr>");
     }
@@ -875,7 +874,7 @@ string PasswordFile::summary(PasswordFileSaveFlags saveOptions) const
  */
 string flagsToString(PasswordFileOpenFlags flags)
 {
-    vector<string> options;
+    auto options = std::vector<std::string>();
     if (flags & PasswordFileOpenFlags::ReadOnly) {
         options.emplace_back("read-only");
     }
@@ -890,7 +889,7 @@ string flagsToString(PasswordFileOpenFlags flags)
  */
 string flagsToString(PasswordFileSaveFlags flags)
 {
-    vector<string> options;
+    auto options = std::vector<std::string>();
     options.reserve(3);
     if (flags & PasswordFileSaveFlags::Encryption) {
         options.emplace_back("encryption");
