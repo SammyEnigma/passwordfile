@@ -160,6 +160,9 @@ inline bool PasswordFile::isOpen() const
 
 /*!
  * \brief Returns the extended header.
+ * \remarks
+ * - Returns only unsupported extended data that will be preserved as-is when saving the file.
+ * - Does not return recognized extended data such as the authentication tag.
  */
 inline std::string &PasswordFile::extendedHeader()
 {
