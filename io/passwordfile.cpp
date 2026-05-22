@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <sstream>
+#include <type_traits>
 
 using namespace std;
 using namespace CppUtilities;
@@ -34,7 +35,14 @@ namespace Io {
 constexpr unsigned int aes256cbcIvSize = 16U;
 constexpr unsigned int aes256blockSize = 32U;
 constexpr unsigned int aes256additionalBufferSize = aes256blockSize * 2;
+
+enum class ExtendedHeaderFieldIds : std::uint32_t {
+    AuthTag = 0x686D6163U,
+};
+
 constexpr auto authTagSize = Util::OpenSsl::Sha256Sum::size; // HMAC-SHA256
+constexpr auto extendedHeaderFieldIdSize = sizeof(std::underlying_type<ExtendedHeaderFieldIds>::type);
+constexpr auto extendedAuthTagSize = extendedHeaderFieldIdSize + authTagSize;
 
 /*!
  * \class PasswordFile
@@ -220,19 +228,36 @@ void PasswordFile::load()
     auto authTag = std::vector<char>();
     if (m_version >= 0x4U) {
         auto extendedHeaderSize = static_cast<std::size_t>(m_freader.readUInt16BE());
-        // extract authentication tag
-        if (decrypterUsed && hmacUsed) {
-            if (extendedHeaderSize < authTagSize) {
-                throw ParsingException("Authentication tag is truncated.");
+        if (extendedHeaderSize >= extendedHeaderFieldIdSize) {
+            switch (static_cast<ExtendedHeaderFieldIds>(m_freader.readUInt32BE())) {
+            case ExtendedHeaderFieldIds::AuthTag:
+                // read authentication tag which will always be written as first extended field if present
+                // note: A stale auth tag might be present if `!hmacUsed`. This can happen if a file is saved with a tag and
+                //       then re-saved with a version of this library that does not support tags yet. Then the tag is preserved
+                //       as unknown extended data when re-saving but not updated. In this case the tag is ignored and discared
+                //       when re-saving with this version of the code. The file is treated as if no tag was present at all.
+                if ((extendedHeaderSize -= extendedHeaderFieldIdSize) < authTagSize) {
+                    throw ParsingException("Authentication tag is truncated.");
+                }
+                authTag.resize(authTagSize);
+                m_file.read(authTag.data(), authTagSize);
+                extendedHeaderSize -= authTagSize;
+                break;
+            default:
+                // ignore unknown field (probably written by a future version of this library)
+                m_file.seekg(-static_cast<std::streamoff>(extendedHeaderFieldIdSize));
+                break;
             }
-            authTag.resize(authTagSize);
-            m_file.read(authTag.data(), authTagSize);
-            extendedHeaderSize -= authTagSize;
         }
-        // skip remaining bytes
+        // read remaining unknown fields to preserve them
         m_extendedHeader = m_freader.readString(extendedHeaderSize);
     } else {
         m_extendedHeader.clear();
+    }
+
+    // verify whether auth tag is present if flags indicate presence
+    if (hmacUsed && authTag.empty()) {
+        throw ParsingException("Authentication tag is missing.");
     }
 
     // get length
@@ -598,9 +623,9 @@ void PasswordFile::write(PasswordFileSaveFlags options)
     if (version >= 0x4U) {
         auto extendedHeaderSize = m_extendedHeader.size();
         if (options & PasswordFileSaveFlags::AuthenticationTag) {
-            extendedHeaderSize += authTagSize;
+            extendedHeaderSize += extendedAuthTagSize;
         }
-        if (m_extendedHeader.size() > numeric_limits<std::uint16_t>::max()) {
+        if (extendedHeaderSize > numeric_limits<std::uint16_t>::max()) {
             throw runtime_error("Extended header exceeds maximum size.");
         }
         m_fwriter.writeUInt16BE(static_cast<std::uint16_t>(extendedHeaderSize));
@@ -613,6 +638,7 @@ void PasswordFile::write(PasswordFileSaveFlags options)
             hmacInput.insert(hmacInput.end(), reinterpret_cast<const unsigned char *>(encryptedData.data()),
                 reinterpret_cast<const unsigned char *>(encryptedData.data()) + ciphertextSize);
             const auto hmacTag = Util::OpenSsl::computeHmacSha256(password.data, authTagSize, hmacInput.data(), hmacInput.size());
+            m_fwriter.writeUInt32BE(static_cast<std::uint32_t>(ExtendedHeaderFieldIds::AuthTag));
             m_file.write(reinterpret_cast<const char *>(hmacTag.data), authTagSize);
         }
 
