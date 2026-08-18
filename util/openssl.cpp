@@ -12,6 +12,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/params.h>
+#include <openssl/provider.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 
@@ -19,6 +20,7 @@
 #include <cctype>
 #include <cmath>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <vector>
 
@@ -102,6 +104,8 @@ static std::string_view getQueryParam(std::string_view url, std::string_view par
 }
 } // namespace
 
+static OSSL_PROVIDER *provider = nullptr;
+
 /*!
  * \brief Initializes OpenSSL.
  */
@@ -109,8 +113,17 @@ void init()
 {
     // load the human readable error strings for libcrypto
     ERR_load_crypto_strings();
+
     // load all digest and cipher algorithms
     OpenSSL_add_all_algorithms();
+
+    // ensure the default provider is loaded
+    // note: Other libraries like the Qt Network plugin might configure their own provider contexts
+    //       explicitly. This explicit configuration disables the automatic fallback for loading the
+    //       "default" provider globally - which we therefore need to do explicitly as well.
+    if (!(provider = OSSL_PROVIDER_load(nullptr, "default"))) {
+        std::cerr << "Unable to load default OpenSSL provider.\n";
+    }
 }
 
 /*!
@@ -120,8 +133,14 @@ void clean()
 {
     // removes all digests and ciphers
     EVP_cleanup();
+
     // remove error strings
     ERR_free_strings();
+
+    // unload default provider
+    if (provider) {
+        OSSL_PROVIDER_unload(provider);
+    }
 }
 
 /*!
