@@ -12,9 +12,15 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/params.h>
-#include <openssl/provider.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+
+#ifdef OPENSSL_VERSION_MAJOR
+#if OPENSSL_VERSION_MAJOR >= 3
+#define PASSWORD_FILE_USE_OPENSSL_PROVIDER_API
+#include <openssl/provider.h>
+#endif
+#endif
 
 #include <array>
 #include <cctype>
@@ -104,7 +110,9 @@ static std::string_view getQueryParam(std::string_view url, std::string_view par
 }
 } // namespace
 
+#ifdef PASSWORD_FILE_USE_OPENSSL_PROVIDER_API
 static OSSL_PROVIDER *provider = nullptr;
+#endif
 
 /*!
  * \brief Initializes OpenSSL.
@@ -121,9 +129,11 @@ void init()
     // note: Other libraries like the Qt Network plugin might configure their own provider contexts
     //       explicitly. This explicit configuration disables the automatic fallback for loading the
     //       "default" provider globally - which we therefore need to do explicitly as well.
+#ifdef PASSWORD_FILE_USE_OPENSSL_PROVIDER_API
     if (!(provider = OSSL_PROVIDER_load(nullptr, "default"))) {
         std::cerr << "Unable to load default OpenSSL provider.\n";
     }
+#endif
 }
 
 /*!
@@ -138,9 +148,11 @@ void clean()
     ERR_free_strings();
 
     // unload default provider
+#ifdef PASSWORD_FILE_USE_OPENSSL_PROVIDER_API
     if (provider) {
         OSSL_PROVIDER_unload(provider);
     }
+#endif
 }
 
 /*!
