@@ -396,7 +396,7 @@ void NodeEntry::make(ostream &stream) const
     writer.writeLengthPrefixedString(label());
     if (!isExpandedByDefault() || !m_extendedData.empty()) {
         writer.writeUInt16BE(static_cast<std::uint16_t>(1 + m_extendedData.size())); // extended header is 1 byte long
-        auto flags = std::uint8_t{0x00};
+        auto flags = std::uint8_t{ 0x00 };
         if (isExpandedByDefault()) {
             flags |= 0x80;
         }

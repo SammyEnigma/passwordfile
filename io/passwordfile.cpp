@@ -323,8 +323,8 @@ void PasswordFile::load()
             hmacInput.reserve(static_cast<std::size_t>(aes256cbcIvSize) + rawData.size());
             hmacInput.insert(hmacInput.end(), iv, iv + aes256cbcIvSize);
             hmacInput.insert(hmacInput.end(), rawData.begin(), rawData.end());
-            const auto expectedTag = Util::OpenSsl::computeHmacSha256(
-                password.data, Util::OpenSsl::Sha256Sum::size, hmacInput.data(), hmacInput.size());
+            const auto expectedTag
+                = Util::OpenSsl::computeHmacSha256(password.data, Util::OpenSsl::Sha256Sum::size, hmacInput.data(), hmacInput.size());
             if (CRYPTO_memcmp(authTag.data(), expectedTag.data, authTagSize) != 0) {
                 throw CryptoException("Authentication failed: data integrity check failed (wrong password or file corrupted).");
             }
@@ -514,7 +514,7 @@ void PasswordFile::write(PasswordFileSaveFlags options)
     m_fwriter.writeUInt32LE(version);
 
     // write flags
-    auto flags = std::uint8_t{0x00};
+    auto flags = std::uint8_t{ 0x00 };
     if (options & PasswordFileSaveFlags::Encryption) {
         flags |= 0x80 | 0x40;
     }

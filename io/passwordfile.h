@@ -32,7 +32,8 @@ enum class PasswordFileSaveFlags : std::uint64_t {
     PasswordHashing = (1 << 2), /**< enable password hashing */
     AllowToCreateNewFile = (1 << 3), /**< create a new file if the file does not exist */
     AuthenticationTag = (1 << 4), /**< add an HMAC-SHA256 authentication code */
-    Default = Encryption | Compression | PasswordHashing | AllowToCreateNewFile | AuthenticationTag, /**< default behavior for storing data encrypted in the most secure and efficient way */
+    Default = Encryption | Compression | PasswordHashing | AllowToCreateNewFile
+        | AuthenticationTag, /**< default behavior for storing data encrypted in the most secure and efficient way */
 };
 
 PASSWORD_FILE_EXPORT std::string flagsToString(PasswordFileSaveFlags flags);
