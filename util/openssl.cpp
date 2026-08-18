@@ -111,10 +111,10 @@ static OSSL_PROVIDER *provider = nullptr;
  */
 void init()
 {
-    // load the human readable error strings for libcrypto
+    // load the human readable error strings for libcrypto (for compatibility with OpenSSL < 1.1.0)
     ERR_load_crypto_strings();
 
-    // load all digest and cipher algorithms
+    // load all digest and cipher algorithms (for compatibility with OpenSSL < 1.1.0)
     OpenSSL_add_all_algorithms();
 
     // ensure the default provider is loaded
@@ -131,10 +131,10 @@ void init()
  */
 void clean()
 {
-    // removes all digests and ciphers
+    // removes all digests and ciphers (for compatibility with OpenSSL < 1.1.0)
     EVP_cleanup();
 
-    // remove error strings
+    // remove error strings (for compatibility with OpenSSL < 1.1.0)
     ERR_free_strings();
 
     // unload default provider
