@@ -212,6 +212,9 @@ TOTP computeTOTP(std::string_view url, CppUtilities::DateTime time)
     const auto period = CppUtilities::stringToNumber<std::uint64_t>(getQueryParam(url, "period", "30"));
     const auto digits = CppUtilities::stringToNumber<int>(getQueryParam(url, "digits", "6"));
     const auto algo = getQueryParam(url, "algorithm", "SHA1");
+    if (period < 1 || digits < 1) {
+        throw CppUtilities::ConversionException("period and digits must be >= 1");
+    }
 
     // encode the counter as a 64-bit big-endian integer as per RFC 6238
     auto timeStamp = static_cast<std::uint64_t>(time.toTimeStamp());
